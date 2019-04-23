@@ -1,360 +1,474 @@
+/*
+*	Created by Nan Mihai on 16.03.2017
+*	Copyright (c) 2017 Nan Mihai. All rights reserved.
+*	Laborator 4 - Structuri de date
+*	Grupa 312CC
+*	Facultatea de Automatica si Calculatoare
+*	Anul Universitar 2016-2017, Seria CC
+*/
+
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 #include <string.h>
-#include "tema2_SD.h"
 
-Tree initTree(int value, int parentValue, int nrAddress, char** address) {
-	Tree tree;
-	tree = (Tree) malloc(sizeof(struct tree));
-	// id-ul nodului
-	tree->value = value; 
-	
-	// id-ul parintelui
-	tree->parentValue = parentValue;
-	
-	// copiii 
-	tree->parent = NULL;
-	tree->child = NULL;
-	tree->sibling = NULL;
+#define SIZE	100
 
-	// numarul de adrese rezolvabile
-	tree->nrAddress = nrAddress;
+#define sd_assert(message, test) \
+	do { \
+		if (!(test)) \
+			return message; \
+	} while (0)
 
-	// adresele rezolvabile
-	tree->address = address;
-	return tree;
+#define sd_run_test(test, score) \
+	do { \
+		char *message = test(); \
+		tests_run++; \
+		if (message) \
+			return message; \
+		else \
+			total_score += score; \
+	} while (0)
+
+int tests_run = 0;
+float total_score = 0;
+
+typedef struct node {
+	int value;
+	struct node* next;
+}*Node;
+
+//Definitia structurii de date pentru stiva
+typedef struct stack {
+	Node top;
+	int size;
+}*Stack;
+
+//Definitia structurii de date pentru coada
+typedef struct queue {
+	Node head, tail;
+	int size;
+}*Queue;
+
+typedef struct list {
+	int value;
+	struct list* next;
+	int first;
+}*CircularList;
+
+Node initNode(int value) {
+	Node node = malloc(sizeof(struct node));
+	node->value = value;
+	node->next = NULL;
+	return node;
 }
 
-int noOfKidsTree(Tree tree) 
-{
-	Tree tmp;
-	int kids = 0;
-	tmp = tree->child;
-	while (tmp != NULL)
+Node freeNode(Node node) {
+	Node tmp;
+	while (node != NULL)
 	{
-		kids++;
-		tmp = tmp->sibling;
-	}
-	return kids;
+		tmp = node;
+		node = node->next;
+		free(tmp);
+	}	
+	return node;
 }
 
-// parcurgerea arborelui pe nivel si gasirea unei valori date
-Tree findNode(Tree tree, int value)
-{
-	if (tree == NULL)
-		return NULL;
-	if (tree->value == value)
-		return tree;
-	
-	if (tree->child != NULL && tree->sibling != NULL)
-	{
-		Tree tmp = NULL;
-		tmp = findNode(tree->child, value);
-		if (tmp == NULL)
-			return findNode(tree->sibling, value);
-	}
 
-	if (tree->child != NULL)
-		return findNode(tree->child, value);
-
-	if (tree->sibling != NULL)
-		return findNode(tree->sibling, value);
+/**
+ * Problema 1 - Stiva
+ */
+Stack initStack(int value) {
+	Stack stack = (Stack) malloc(sizeof(struct stack));
+	stack->top = initNode(value);
+	stack->size = 1;
+	return stack;
 }
 
-Tree insertChildTree(Tree tree, int value, int parentValue, 
-			int nrAddress, char** address) 
-{
-	Tree tmp;
-	if (tree == NULL)
-	{
-		tree = initTree(value, parentValue, nrAddress, address);
-		return tree;
-	}
+int isEmptyStack(Stack stack) {
+	if (stack == NULL || stack->size == 0)
+		return 1;
+	else return 0;
+}
 
+Stack push(Stack stack, int value) {
+	Node new;
+	if (stack != NULL)
+	{
+		new = initNode(value);
+		new->next = stack->top;
+		stack->top = new;
+		stack->size++;
+	}
 	else
-	{
-		Tree aux = NULL, par = NULL;
-		aux = initTree(value, parentValue, nrAddress, address);
-		par = findNode(tree, parentValue);
-		if (par->child == NULL)
-		{
-			par->child = aux;
-			aux->parent = par;
-		}
-		else
-		{
-			tmp = par->child;
-			while (tmp->sibling != NULL)
-			{
-				tmp = tmp->sibling;
-			}
-			tmp->sibling = aux;
-			aux->parent = par;
-
-		}
-
-	}
-
-	return tree;
+		stack = initStack(value);
+	return stack;
 }
 
-
-// gaseste copilul unui nod care are o anumita valoare
-Tree getChildTree(Tree tree, int value) 
-{
-
-	Tree tmp;
-	tmp = tree->child;
-
-	while (tmp != NULL)
+Stack pop(Stack stack) {
+	Node tmp;
+	if (stack != NULL && stack->size != 0)
 	{
-		if (tmp->value == value)
-			return tmp;
-		tmp = tmp->sibling;
+		tmp = stack->top;
+		stack->top = stack->top->next;
+		stack->size--;
+		free(tmp);
 	}
 
+	return stack;
+}
+
+int top(Stack stack) {
+	if (isEmptyStack(stack) == 0)
+		return stack->top->value;
+	else
+		return -1;
+}
+
+Stack freeStack(Stack stack) {
+	freeNode(stack->top);
+	free(stack);
+	return stack;
+}
+
+/**
+ * Problema 2 - Coada
+ */
+Queue initQueue(int value) {
+	Queue queue = (Queue) malloc(sizeof(struct queue));
+	queue->tail = queue->head = initNode(value);
+	queue->size = 1;
+	return queue;
+}
+
+Queue enqueue(Queue queue, int value) {
+	if (queue != NULL)
+	{
+		Node new = initNode(value);
+		queue->tail->next = new;
+		queue->tail = new;
+		queue->size++;
+	}
+	else
+		queue = initQueue(value);
+	return queue;
+}
+
+int isEmptyQueue(Queue queue) {
+	if (queue == NULL || queue->size == 0 )
+		return 1;
+	else 
+		return 0;
+}
+
+Queue dequeue(Queue queue) {
+	Node tmp;
+	if (queue != NULL && queue->size != 0)
+	{
+		tmp = queue->head;
+		queue->head = queue->head->next;
+		queue->size--;
+		free(tmp);
+	}
+
+	return queue;
+	
+}
+
+int first(Queue queue) {
+	if (isEmptyQueue(queue) == 0)
+		return queue->head->value;
+	else
+		return -1;
+}
+
+Queue freeQueue(Queue queue) {
+	if (queue != NULL )
+	{
+		if (queue->head != NULL)
+			freeNode(queue->head);
+		free(queue);
+	}
 	return NULL;
 }
 
+// * Problema 3 - Ce stuctura de date puteti utiliza?
 
-Tree deleteChildTree(Tree tree, int value) 
+
+int validPair(int a, int b) 
 {
-	Tree tmp, aux;
-	tmp = getChildTree(tree, value);
-	if (tmp != NULL)
-	{
-		if (tmp == tree->child)
-		{
-			tree->child = tmp->sibling;
-			return tree;
-		}
-
-		aux = tree->child;
-		while (aux->sibling != tmp)
-			aux = aux->sibling;
-		aux->sibling = tmp->sibling;
-		return tree;
+	if (a == 1 && b == 3)
+        {
+		return 1;
 	}
-	return tree;
-}
-
- void traverseTree(Tree tree)
- {
- 	while (tree != NULL)
- 	{
- 		printf("%d ", tree->value);
- 		if (tree->child != NULL)
- 			traverseTree(tree->child);
- 		tree = tree->sibling;
- 	}
- }
-// }
-// List initList(char* value) {
-// 	List new_list;
-// 	new_list = (List) malloc(sizeof(struct list));
-// 	if (new_list == NULL)
-// 	{
-// 		printf("Alocarea dinamica a esuat");
-// 		exit(-1);
-// 	}
-// 	new_list->value = strdup(value);
-// 	new_list->next = NULL;
-// 	return new_list;
-// }
-
-// List addLastList(List l, char* value) {
-// 	List new_element = initList(value);
-// 	List temp;
-// 	if (l == NULL)
-// 	{
-// 		l = new_element;
-// 		return l;
-// 	}
-// 	temp = l;
-// 	while (temp->next != NULL)
-// 		temp = temp->next;
-// 	temp->next = new_element;
-// 	return l;
-// }
-
-// List addItemList(List l, char* address, char* value) {
-// 	List temp;
-
-// 	temp = l;
-// 	while (temp != NULL && strcmp(address, temp->value) != 0)
-// 		temp = temp->next;
-
-// 	List new_element = initList(value);
-// 	new_element->next = temp->next;
-// 	temp->next = new_element;
-
-// 	return l;
-// }
-
-// List addFirstList(List l, char* value) {
-// 	List new_element = initList(value);
-// 	new_element->next = l;
-// 	new_element->value = value;
-// 	return new_element;
-	
-// }
-
-
-void task1(Tree tree, int nrNodes)
-{
-	Tree node, tmp;
-	FILE* g;
-	g = fopen("tree.out", "w");
-	int i;
-	for (i = 0; i < nrNodes; i++)
-	{
-		node = findNode(tree, i);
-		// afisez valoarea nodului i
-		fprintf(g, "%d", node->value);
-		//printf("%d ", node->value);
-		tmp = node->child;
-		while (tmp != NULL)
-		{
-			fprintf(g, " %d", tmp->value);
-		//	printf("%d ", tmp->value);
-			tmp = tmp->sibling;
-		}
-
-		if (i != nrNodes - 1)
-			fprintf(g, "\n");
-		//printf("\n");
+	if (a == 2 && b == 4) 
+        {
+		return 1;
 	}
-	fclose(g);
-}
-
-// void task2(Tree tree, int nrNodes)
-// {
-// 	Tree node, tmp;
-// 	FILE *g;
-// 	int i, j; 
-// 	g = fopen("hierarchy.out", "w");
-// 	for (i = 0; i < nrNodes; i++)
-// 	{
-// 		node = findNode(tree, i);
-// 		fprintf(g, "%d", node->value);
-
-// 		for (j = 0; j < node->nrAddress; j++)
-// 			fprintf(g, " %s", node->address[j]);
-
-// 		if (i != nrNodes - 1)
-// 			fprintf(g, "\n");
-// 	}
-// }
-int main()
-{
-	// citirea din fisier a datelor
-	FILE* f;
-	Tree tree = NULL, aux, par;
-	int nrNodes, value, parentValue, nrAddress, i, j, nrmax = 5, ok;
-	char buffer[BUFMAX];
-
-	// vector alocat dinamic in care tin nodurile pe care le citesc si care
-	// inca nu au parinte in arbore
-	Tree *waitNodes;
-	waitNodes = (Tree*)malloc(nrmax * sizeof(Tree));
-	int waitNr = 0;
-	char **address;
-	f = fopen("tree.in", "r");
-	if (f == NULL)
-		printf("Eroare! Nu s-a putut deschide fisierul!");
-	else
-	{
-		// citesc numarul de noduri
-		fscanf(f, "%d", &nrNodes);
-		// citesc fiecare nod in parte, parintele lui, numarul de adrese 
-		// rezolvabile si adresele propriu-zise
-		for (i = 0 ; i < nrNodes; i++)
-		{
-			fscanf(f, "%d", &value);
-			fscanf(f, "%d", &parentValue);
-			fscanf(f, "%d", &nrAddress);
-			address = (char**) malloc(nrAddress * sizeof(char*));
-			for (j = 0; j < nrAddress; j++)
-			{
-				fscanf(f, "%s", buffer);
-				address[j] = (char*) malloc((strlen(buffer) + 1) * sizeof(char));
-				strcpy(address[j], buffer); 
-			}
-
-			// nodul radacina e prima valoare din arbore
-			 if (parentValue == -1)
-			 	tree = initTree(value, parentValue, nrAddress, address);
-	
-
-			// pentru orice nod care nu e nod radacina, ii caut parintele
-			// in arbore; daca il gasesc, leg nodul la parinte; daca nu-l
-			// gasesc, bag nodul intr-o lista de asteptare
-			
-			if (value != 0)
-				if (findNode(tree, parentValue) != NULL)
-					tree = insertChildTree(tree, value, parentValue, nrAddress, 
-																	address);
-
-				else
-				{
-					aux = initTree(value, parentValue, nrAddress, address);
-					if (waitNr == nrmax)
-					{
-						nrmax = nrmax * 2;
-						waitNodes = (Tree*)realloc(waitNodes, nrmax * sizeof(Tree));
-					}
-					waitNodes[waitNr] = aux;
-					waitNr++;
-				}
-
-			// dezaloc memoria pt vectorul de adrese corespunzator nodului i
-			 // for (j = 0; j < nrAddress; j++)
-			 // 	free(address[i]);
-			 // free(address);
-		 }
-	}
-
-	// presupun ca toate nodurile care nu aveau parinte in arbore in urma  
-	// citirii au fost introduse in arbore in urma adaugarii altor noduri
-	// OBS: setez valoarea parintelui nodului care si-a gasit loc in arbore 
-	// in urma adaugarii altor noduri ca fiind -10
-	
-	ok = 0;
-	while (ok == 0)
-	{
-		// pp ca toate nodurile au un loc in arbore
-		ok = 1;
-		for (j = 0; j < waitNr; j++)
-		{
-			if (waitNodes[j]->parentValue != -10)
-				ok = 0;
-
-			// daca nodul are parinte in arbore
-			if (findNode(tree, waitNodes[j]->parentValue) != NULL)
-			{
-				// adaug nodul in arbore
-				tree = insertChildTree(tree, waitNodes[j]->value, 
-						waitNodes[j]->parentValue, waitNodes[j]->nrAddress, 
-						waitNodes[j]->address);
-
-				// scot nodul din lista de noduri care nu si-au gasit parinte
-				waitNodes[j]->parentValue = -10;
-			}
-		}
-	}
-
-	// cerinta 1 - afisez id-urile nodurilor + copiii acestora
-	task1(tree, nrNodes);
-	fclose(f);
-
-	// cerinta 2 - afisez id-urilor nodurilor + adresele rezolvabile asignate
-	// f = fopen("hierarchy.in", "r");
-	// task2(tree, nrNodes);
-	// fclose(f);
-
-///	traverseTree(tree);
-	// dezaloc memoria
-	//free(waitNodes);
-	// inchid fisierul
 	return 0;
+}
+int checkExpression(const char* exp) {
+	Stack stack ;
+	stack = NULL;
+	int i;
+	// codificare: 
+	// 1 - (
+	// 2 - [
+	// 3 - )
+	// 4 -]
+	for (i = 0; i < strlen(exp); i++)
+	{
+		if (exp[i] == '(')
+			stack = push(stack, 1);
+		if (exp[i] == '[')
+			stack = push(stack, 2);
+		if (exp[i] == ')')
+			if (validPair(top(stack), 3) == 1)
+				stack = pop(stack);
+		if (exp[i] == ']')
+			if (validPair(top(stack), 4) == 1)
+				stack = pop(stack);
+	}
+
+	// daca stiva este goala la final, se returneaza 1, altfel 0
+	return isEmptyStack(stack);
+}
+
+/**
+ * Bonus - Lista circulara simplu inlantuita
+ */
+int josephus(int number, const char *verse) {
+	return 0;
+}
+
+int checkStack(Stack stack, int *vect, int len) {
+	int i;
+	if (stack == NULL) {
+		return 0;
+	}
+	if (stack->size != len) {
+		return 0;
+	} else {
+		for (i = len - 1; i >= 0; i--) {
+			if (vect[i] != top(stack)) {
+				printf("%d - %d\n", vect[i], top(stack));
+				return 0;
+			}
+			stack = pop(stack);
+		}
+		return 1;
+	}
+}
+
+int checkQueue(Queue queue, int *vect, int len) {
+	int i;
+	if (queue == NULL) {
+		return 0;
+	}
+	if (queue->size != len) {
+		return 0;
+	} else {
+		for (i = 0; i < len; i++) {
+			if (vect[i] != first(queue)) {
+				return 0;
+			}
+			queue = dequeue(queue);
+		}
+		return 1;
+	}
+}
+
+void drawStack(Stack stack, char *name) {
+	int i, size;
+	FILE *stream;
+	char *buffer;
+
+	if (stack == NULL || name == NULL)
+		return;
+	stream = fopen("stack.dot", "w");
+	fprintf(stream, "digraph stack {\n");
+	fprintf(stream, "rankdir=LR;\nnode [shape=record, style=filled, fillcolor=yellow];\n");
+	i = 0;
+	fprintf(stream, "\"node0\" [\n label = \"");
+	size = stack->size;
+	while (!isEmptyStack(stack)) {
+		fprintf(stream, "|<f%d> %d", i++, top(stack));
+		stack = pop(stack);
+	}
+	fprintf(stream, "\", shape = \"record\", fillcolor = \"yellow\"];\n}");
+	fclose(stream);
+	buffer = (char*) malloc(SIZE*sizeof(char));
+	sprintf(buffer, "dot stack.dot | neato -n -Tpng -o %s.png", name);
+	system(buffer);
+	free(buffer);
+	stack->size = size;
+}
+
+static char *test_problema1() {
+	int i, val, *vect, count = 0;
+	vect = (int*) malloc(10*sizeof(int));
+	Stack stack = NULL;
+	for (i = 0; i < 10; i++) {
+		val = rand() % 100;
+		stack = push(stack, val);
+		vect[i] = val;
+	}
+	sd_assert ("Problema 1 - Test1 picat!", checkStack(stack, vect, 10));
+	free(vect);
+	stack = freeStack(stack);
+	stack = NULL;
+	vect = (int*) malloc(100*sizeof(int));
+	for (i = 0; i < 100; i++) {
+		val = rand() % 100;
+		stack = push(stack, val);
+		if(i % 2 != 0) {
+			stack = pop(stack);
+		} else {
+			vect[i/2] = val;
+		}
+	}
+	sd_assert ("Problema 1 - Test2 picat!", checkStack(stack, vect, 50));
+	free(vect);
+	stack = freeStack(stack);
+	stack = NULL;
+	vect = (int*) malloc(1000*sizeof(int));
+	for(i = 0; i < 1000; i++) {
+		val = rand() % 5000;
+		stack = push(stack, val);
+		vect[count++] = val;
+		if(val % 3 == 0) {
+			stack = pop(stack);
+			if(count > 0) {
+				count--;
+			}
+			stack = pop(stack);
+			if(count > 0) {
+				count--;
+			}
+		}
+	}
+	sd_assert ("Problema 1 - Test3 picat!", checkStack(stack, vect, count));
+	free(vect);
+	stack = freeStack(stack);
+	return 0;
+}
+
+static char *test_problema2() {
+	int i, val, *vect, count = 0;
+	vect = (int*) malloc(10*sizeof(int));
+	Queue queue = NULL;
+	for(i = 0; i < 10; i++) {
+		val = rand() % 100;
+		queue = enqueue(queue, val);
+		vect[i] = val;
+	}
+	sd_assert ("Problema 2 - Test1 picat!", checkQueue(queue, vect, 10));
+	free(vect);
+	queue = freeQueue(queue);
+	queue = NULL;
+	vect = (int*) malloc(100*sizeof(int));
+	for(i = 0; i < 100; i++) {
+		val = rand() % 100;
+		queue = enqueue(queue, val);
+		if(i > 10 && i < 20) {
+			queue = dequeue(queue);
+		} 
+		if(i >= 9) {
+			vect[count++] = val;
+		}
+	}
+	sd_assert ("Problema 2 - Test2 picat!", checkQueue(queue, vect, count));
+	free(vect);
+	queue = freeQueue(queue);
+	queue = NULL;
+	vect = (int*) malloc(1000*sizeof(int));
+	count = 0;
+	for(i = 0; i < 1000; i++) {
+		val = rand() % 5000;
+		queue = enqueue(queue, val);
+		if(i > 100 && i < 300) {
+			queue = dequeue(queue);
+		} 
+		if(i >= 199) {
+			vect[count++] = val;
+		}
+	}
+	sd_assert ("Problema 2 - Test3 picat!", checkQueue(queue, vect, count));
+	free(vect);
+	queue = freeQueue(queue);
+	return 0;
+}
+
+static char *test_bonus() {
+	sd_assert ("Bonus - Test1 picat!", josephus(10, "ala bala portocala bala ala\0") == 3);
+	sd_assert ("Bonus - Test2 picat!", josephus(25, "Ciresica are mere, Ciresel vine si cere!\n\0") == 15);
+	sd_assert ("Bonus - Test3 picat!", josephus(100, "Ala bala portocala\nToata casa-i alandala\0") == 68);
+	sd_assert ("Bonus - Test4 picat!", josephus(7, "una mia suta lei ia te rog pe cine vrei din gramada cu purcei") == 1);
+	sd_assert ("Bonus - Test5 picat!", josephus(250, "Intr-un castel de ciocolata  Traia o zana fermecata Ce culoare avea rochea de pe ea?\0") == 162);
+	return 0;
+}
+
+static char *test_problema3() {
+	sd_assert ("Problema 3 - Test1 picat!", checkExpression("[(([])([])()())]\0") == 1);
+	sd_assert ("Problema 3 - Test2 picat!", checkExpression("(((([([([])])]))))\0") == 1);
+	sd_assert ("Problema 3 - Test3 picat!", checkExpression("(([])((([()]))()))\0") == 1);
+	sd_assert ("Problema 3 - Test4 picat!", checkExpression("((((((()))[]))))))(((((([]))))))))((((()[])))))))[]]]]]]]][[[[](((((((((((())\0") == 0);
+	sd_assert ("Problema 3 - Test5 picat!", checkExpression("[](()(((([]((((())[]))))))))((((((((()((((()))))))((((((((())()))\0") == 0);
+	sd_assert ("Problema 3 - Test6 picat!", checkExpression(")))))])))([[()(()())]]((((((((\0") == 0);
+	return 0;
+}
+
+static char *all_tests() {
+	sd_run_test(test_problema1, 4);
+	sd_run_test(test_problema2, 4);
+	sd_run_test(test_problema3, 2);
+	sd_run_test(test_bonus, 4);
+	return 0;
+}
+
+static char *selective_tests(int argc, char **argv) {
+	int i;
+	int viz[4] = {0};
+	for (i = 1; i < argc; i++) {
+		if (viz[atoi(argv[i])]) {
+			continue;
+		}
+		if (!strcmp(argv[i], "1")) {
+			viz[1] = 1;
+			sd_run_test(test_problema1, 4);
+		} else if (!strcmp(argv[i], "2")) {
+			viz[2] = 1;
+			sd_run_test(test_problema2, 4);
+		} else if (!strcmp(argv[i], "3")) {
+			viz[3] = 1;
+			sd_run_test(test_problema3, 1);
+		} else {
+			viz[4] = 1;
+			sd_run_test(test_bonus, 4);
+		}
+	}
+	return 0;
+}
+
+int main(int argc, char **argv) {
+	srand(time(NULL));
+	char *result;
+	if (argc == 1) {
+		result = all_tests();
+		if (result != 0) {
+			printf("%s\n", result);
+		} else {
+			printf("Toate testele au trecut! Felicitari!\n");
+		}
+	} else {
+		result = selective_tests(argc, argv);
+		if (result != 0) {
+			printf("%s\n", result);
+		} else {
+			printf("Toate testele selectate au trecut!\n");
+		}
+	}
+	printf("Punctajul obtinut este: %.2lf\n", total_score);
+	printf("Teste rulate: %d\n", tests_run);
+	return result != 0;
 }
