@@ -4,11 +4,6 @@
 
 #define BUFMAX 10000
 
-// typedef struct list {
-// 	char *value;
-// 	struct list* next;
-// }*List;
-
 typedef struct tree 
 {
 	// id-ul nodului
