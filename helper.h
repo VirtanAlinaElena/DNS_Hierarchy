@@ -33,8 +33,3 @@ Tree insertChildTree(Tree tree, int value, int parentValue, int nrAddress,
 							char** address);
 Tree deleteChildTree(Tree tree, int value);
 Tree findNode(Tree tree, int value);
-
-// List initList(char* value);
-// List addLastList(List l, char* value);
-// List addItemList(List l, char* address, char* value);
-// List addFirstList(List l, char* value);
